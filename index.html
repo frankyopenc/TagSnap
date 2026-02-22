@@ -499,15 +499,26 @@
   function handleImage(event) {
     const file = event.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target.result;
-      currentImageB64 = dataUrl.split(',')[1];
-      document.getElementById('preview').src = dataUrl;
+
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const MAX = 1200;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.82);
+      currentImageB64 = compressed.split(',')[1];
+      document.getElementById('preview').src = compressed;
       document.getElementById('cameraZone').classList.add('has-image');
+      URL.revokeObjectURL(objectUrl);
       analyzeTag();
     };
-    reader.readAsDataURL(file);
+
+    img.src = objectUrl;
     event.target.value = '';
   }
 
@@ -633,9 +644,10 @@ Respond ONLY with raw JSON, no markdown:
 
     } catch (err) {
       console.error(err);
-      document.getElementById('errorMsg').textContent = `Error: ${err.message}`;
+      const detail = err.message || String(err);
+      document.getElementById('errorMsg').textContent = `Error: ${detail}`;
       document.getElementById('errorMsg').classList.add('show');
-      document.getElementById('aiAnalysis').textContent = 'Could not analyze tag.';
+      document.getElementById('aiAnalysis').textContent = 'Could not analyze tag. See error below.';
       resultCard.classList.add('visible');
     } finally {
       overlay.classList.remove('active');
